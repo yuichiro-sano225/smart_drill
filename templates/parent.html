@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h1>親ダッシュボード</h1>
+  <form method="get" class="inline-form">
+    <select name="child_name">
+      {% for child in children %}<option value="{{ child }}" {% if child == child_name %}selected{% endif %}>{{ child }}</option>{% endfor %}
+    </select>
+    <button type="submit">表示</button>
+  </form>
+  <h2>{{ child_name }}</h2>
+  <div class="summary">
+    <div><strong>{{ stats.total_minutes }}分</strong><span>累計学習時間</span></div>
+    <div><strong>{{ stats.totals.avg_accuracy|round(1) }}%</strong><span>平均正答率</span></div>
+    <div><strong>{{ stats.streak }}日</strong><span>連続学習</span></div>
+    <div><strong>Lv.{{ stats.level }}</strong><span>レベル</span></div>
+  </div>
+  <h2>バッジ</h2>
+  <p>{% if stats.badges %}{% for badge in stats.badges %}<span class="badge">{{ badge }}</span>{% endfor %}{% else %}まだありません{% endif %}</p>
+  <h2>単元ごとの正答率</h2>
+  <table><tr><th>単元</th><th>正解</th><th>総数</th><th>正答率</th></tr>
+  {% for r in stats.by_category %}<tr><td>{{ r.category }}</td><td>{{ r.correct }}</td><td>{{ r.total }}</td><td>{{ r.accuracy }}%</td></tr>{% endfor %}
+  </table>
+  <h2>最近の履歴</h2>
+  <table><tr><th>日時</th><th>モード</th><th>時間</th><th>結果</th><th>正答率</th></tr>
+  {% for s in stats.sessions %}<tr><td>{{ s.started_at }}</td><td>{{ s.mode }}</td><td>{{ s.duration_seconds|minutes }}分</td><td>{{ s.correct_count }}/{{ s.total_questions }}</td><td>{{ s.accuracy }}%</td></tr>{% endfor %}
+  </table>
+  <h2>よく間違える問題</h2>
+  <ul class="answers">
+    {% for w in stats.wrongs %}<li class="ng"><strong>{{ w.question }}</strong><br>正解：{{ w.correct_answer }} / 間違い回数：{{ w.wrong_count }}<br><small>{{ w.explanation }}</small></li>{% endfor %}
+  </ul>
+</section>
+{% endblock %}

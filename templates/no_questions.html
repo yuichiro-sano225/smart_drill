@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h1>出題できる問題がありません</h1>
+  <p>復習モードの場合、まだ間違えた問題がない可能性があります。</p>
+  <p><a class="button" href="{{ url_for('index') }}">戻る</a></p>
+</section>
+{% endblock %}

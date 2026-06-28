@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h1>英語ドリルを始める</h1>
+  <form method="post" action="{{ url_for('start') }}" class="form">
+    <label>子供
+      <select name="child_name">
+        {% for child in children %}<option value="{{ child }}">{{ child }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>学年
+      <select name="grade">
+        <option value="all">すべて</option>
+        {% for grade in grades %}<option value="{{ grade }}">{{ grade }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>単元
+      <select name="category">
+        <option value="all">すべて</option>
+        {% for category in categories %}<option value="{{ category }}">{{ category }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>モード
+      <select name="mode">
+        <option value="normal">通常ドリル</option>
+        <option value="review">間違えた問題を復習</option>
+      </select>
+    </label>
+    <button type="submit">スタート</button>
+  </form>
+</section>
+{% endblock %}

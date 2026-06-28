@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h1>結果</h1>
+  <div class="summary">
+    <div><strong>{{ correct }} / {{ total }}</strong><span>正解</span></div>
+    <div><strong>{{ accuracy }}%</strong><span>正答率</span></div>
+    <div><strong>{{ duration_seconds|minutes }}分</strong><span>学習時間</span></div>
+  </div>
+  <h2>解答一覧</h2>
+  <ul class="answers">
+    {% for a in answers %}
+      <li class="{{ 'ok' if a.is_correct else 'ng' }}">
+        <strong>{{ '○' if a.is_correct else '×' }} {{ a.question }}</strong><br>
+        あなたの答え：{{ a.selected_answer }} / 正解：{{ a.correct_answer }}<br>
+        <small>{{ a.explanation }}</small>
+      </li>
+    {% endfor %}
+  </ul>
+  <p><a class="button" href="{{ url_for('index') }}">もう一度やる</a> <a class="button secondary" href="{{ url_for('parent') }}">親画面を見る</a></p>
+</section>
+{% endblock %}

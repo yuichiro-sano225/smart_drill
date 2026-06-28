@@ -1,0 +1,13 @@
+grade,category,question,choice1,choice2,choice3,choice4,answer,explanation
+中1,単語,「図書館」の英語は？,library,station,school,park,library,library は「図書館」です。
+中1,単語,「駅」の英語は？,river,station,window,teacher,station,station は「駅」です。
+中1,be動詞,I ___ a student.,am,is,are,be,am,I の be動詞は am です。
+中1,be動詞,He ___ my brother.,am,is,are,be,is,He/She/It には is を使います。
+中1,一般動詞,I ___ tennis.,play,plays,playing,played,play,I の現在形では play を使います。
+中2,過去形,I ___ soccer yesterday.,play,plays,played,playing,played,yesterday があるので過去形 played です。
+中2,助動詞,You ___ study English.,can,is,was,does,can,助動詞 can の後ろは動詞の原形です。
+中2,不定詞,I want ___ English.,study,to study,studied,studying,to study,want to do で「〜したい」です。
+中3,現在完了,I have ___ to Kyoto.,go,went,been,going,been,have been to で「〜へ行ったことがある」です。
+中3,受け身,This book is ___ by many students.,read,reads,reading,to read,read,be動詞 + 過去分詞で受け身です。
+中3,関係代名詞,This is the book ___ I bought yesterday.,who,which,when,where,which,物を説明する関係代名詞は which が使えます。
+中3,比較,English is ___ than math for me.,easy,easier,easiest,more easy,easier,than があるので比較級 easier です。

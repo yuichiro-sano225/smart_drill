@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <p class="progress">{{ current }} / {{ total }}</p>
+  <h1>{{ q.question }}</h1>
+  <form method="post" class="choices">
+    {% for choice in choices %}
+      <button type="submit" name="answer" value="{{ choice }}">{{ choice }}</button>
+    {% endfor %}
+  </form>
+</section>
+{% endblock %}
