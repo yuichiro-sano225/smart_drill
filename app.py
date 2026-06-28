@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session
 
-from database import init_db, save_study_session, get_parent_summary, get_recent_sessions
+from database import init_db, save_study_session, get_parent_summary, get_recent_sessions, get_weak_point_summary
 
 app = Flask(__name__)
 app.secret_key = "smart-drill-dev-secret"
@@ -228,7 +228,13 @@ def result():
 def parent():
     summaries = get_parent_summary()
     recent_sessions = get_recent_sessions(limit=20)
-    return render_template("parent.html", summaries=summaries, recent_sessions=recent_sessions)
+    weak_points = get_weak_point_summary()
+    return render_template(
+        "parent.html",
+        summaries=summaries,
+        recent_sessions=recent_sessions,
+        weak_points=weak_points,
+    )
 
 
 if __name__ == "__main__":

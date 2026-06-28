@@ -41,6 +41,43 @@
             </div>
           </div>
 
+
+          <h3>苦手単元ランキング</h3>
+          {% set child_weak_points = weak_points.get(summary.child, []) %}
+          {% if child_weak_points %}
+            <table class="history-table weak-table">
+              <thead>
+                <tr>
+                  <th>順位</th>
+                  <th>学年</th>
+                  <th>単元</th>
+                  <th>正答率</th>
+                  <th>解答数</th>
+                  <th>ヒント</th>
+                  <th>スコア率</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for w in child_weak_points[:5] %}
+                  <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ w.grade }}</td>
+                    <td>{{ w.category }}</td>
+                    <td>
+                      <span class="weak-accuracy">{{ w.accuracy }}%</span>
+                    </td>
+                    <td>{{ w.correct_answers }}/{{ w.total_answers }}</td>
+                    <td>{{ w.hint_total }}回</td>
+                    <td>{{ w.score_rate }}%</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            <p class="note">正答率が低い順に表示しています。解答数が少ない単元は、今後の学習で順位が変わりやすいです。</p>
+          {% else %}
+            <p>苦手分析に使える回答履歴がまだありません。</p>
+          {% endif %}
+
           <h3>最近の学習</h3>
           {% if summary.recent_sessions %}
             <table class="history-table">

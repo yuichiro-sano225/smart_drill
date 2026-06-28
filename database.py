@@ -179,3 +179,51 @@ def get_parent_summary():
 
     conn.close()
     return summaries
+
+
+def get_weak_point_summary(min_answers=1):
+    """Return per-child weak point stats grouped by grade and category."""
+    init_db()
+    conn = get_connection()
+    rows = conn.execute(
+        """
+        SELECT
+            s.child AS child,
+            a.grade AS grade,
+            a.category AS category,
+            COUNT(*) AS total_answers,
+            SUM(CASE WHEN a.is_correct = 1 THEN 1 ELSE 0 END) AS correct_answers,
+            SUM(COALESCE(a.hint_count, 0)) AS hint_total,
+            SUM(COALESCE(a.score, 0)) AS total_score
+        FROM answer_records a
+        JOIN study_sessions s ON s.id = a.session_id
+        GROUP BY s.child, a.grade, a.category
+        HAVING COUNT(*) >= ?
+        ORDER BY s.child ASC,
+                 (CAST(SUM(CASE WHEN a.is_correct = 1 THEN 1 ELSE 0 END) AS REAL) / COUNT(*)) ASC,
+                 COUNT(*) DESC
+        """,
+        (min_answers,)
+    ).fetchall()
+    conn.close()
+
+    grouped = {}
+    for r in rows:
+        total = int(r["total_answers"] or 0)
+        correct = int(r["correct_answers"] or 0)
+        hint_total = int(r["hint_total"] or 0)
+        total_score = int(r["total_score"] or 0)
+        max_score = total * 10
+        item = {
+            "grade": r["grade"] or "未設定",
+            "category": r["category"] or "未設定",
+            "total_answers": total,
+            "correct_answers": correct,
+            "accuracy": round(correct / total * 100, 1) if total else 0,
+            "hint_total": hint_total,
+            "hint_rate": round(hint_total / total, 1) if total else 0,
+            "score_rate": round(total_score / max_score * 100, 1) if max_score else 0,
+        }
+        grouped.setdefault(r["child"], []).append(item)
+
+    return grouped

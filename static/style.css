@@ -145,3 +145,17 @@ button:hover, .primary:hover {
     padding: 6px;
   }
 }
+
+.note {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.weak-accuracy {
+  font-weight: 700;
+  color: #b45309;
+}
+
+.weak-table td:nth-child(3) {
+  font-weight: 700;
+}
