@@ -1,10 +1,20 @@
 import sqlite3
 from pathlib import Path
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_DIR = BASE_DIR / "database"
 DB_PATH = DB_DIR / "smart_drill.db"
+
+# 連続正解・記憶レベルに応じた次回復習間隔（日）
+REVIEW_INTERVAL_DAYS = {
+    0: 1,
+    1: 1,
+    2: 3,
+    3: 7,
+    4: 14,
+    5: 30,
+}
 
 
 def get_connection():
@@ -17,6 +27,7 @@ def get_connection():
 def init_db():
     conn = get_connection()
     cur = conn.cursor()
+
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS study_sessions (
@@ -37,6 +48,7 @@ def init_db():
         )
         """
     )
+
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS answer_records (
@@ -56,6 +68,29 @@ def init_db():
         )
         """
     )
+
+    # v2.0: 子供ごと・問題ごとの学習状態。
+    # CSVは問題そのもの、SQLiteは学習状態、という分離を守る。
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS question_progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            child TEXT NOT NULL,
+            question_id INTEGER NOT NULL,
+            correct_count INTEGER DEFAULT 0,
+            wrong_count INTEGER DEFAULT 0,
+            hint_count INTEGER DEFAULT 0,
+            streak INTEGER DEFAULT 0,
+            memory_level INTEGER DEFAULT 0,
+            last_result TEXT,
+            last_answered TEXT,
+            next_review TEXT,
+            updated_at TEXT NOT NULL,
+            UNIQUE(child, question_id)
+        )
+        """
+    )
+
     conn.commit()
     conn.close()
 
@@ -113,6 +148,118 @@ def save_study_session(child, started_at, ended_at, duration_seconds, answers):
     return session_id
 
 
+def _next_review_date(is_correct, hint_count, memory_level):
+    today = date.today()
+    if not is_correct:
+        return (today + timedelta(days=1)).isoformat()
+    if hint_count > 0:
+        return (today + timedelta(days=2)).isoformat()
+    days = REVIEW_INTERVAL_DAYS.get(memory_level, 30)
+    return (today + timedelta(days=days)).isoformat()
+
+
+def update_question_progress(child, answers):
+    """Update per-question learning state after a quiz result is saved."""
+    init_db()
+    now = datetime.now().isoformat(timespec="seconds")
+    conn = get_connection()
+    cur = conn.cursor()
+
+    for a in answers:
+        question_id = a.get("question_id")
+        if question_id is None:
+            continue
+
+        is_correct = bool(a.get("is_correct"))
+        used_hint_count = int(a.get("hint_count", 0))
+
+        row = cur.execute(
+            """
+            SELECT * FROM question_progress
+            WHERE child = ? AND question_id = ?
+            """,
+            (child, question_id)
+        ).fetchone()
+
+        if row:
+            correct_count = int(row["correct_count"] or 0)
+            wrong_count = int(row["wrong_count"] or 0)
+            hint_count = int(row["hint_count"] or 0)
+            streak = int(row["streak"] or 0)
+            memory_level = int(row["memory_level"] or 0)
+        else:
+            correct_count = wrong_count = hint_count = streak = memory_level = 0
+
+        hint_count += used_hint_count
+
+        if is_correct:
+            correct_count += 1
+            streak += 1
+            # ヒントなし正解は記憶レベルを上げる。ヒントあり正解は定着扱いを弱める。
+            if used_hint_count == 0:
+                memory_level = min(5, memory_level + 1)
+            else:
+                memory_level = max(1, memory_level)
+            last_result = "correct"
+        else:
+            wrong_count += 1
+            streak = 0
+            memory_level = max(0, memory_level - 2)
+            last_result = "wrong"
+
+        next_review = _next_review_date(is_correct, used_hint_count, memory_level)
+
+        if row:
+            cur.execute(
+                """
+                UPDATE question_progress
+                SET correct_count = ?, wrong_count = ?, hint_count = ?,
+                    streak = ?, memory_level = ?, last_result = ?,
+                    last_answered = ?, next_review = ?, updated_at = ?
+                WHERE child = ? AND question_id = ?
+                """,
+                (
+                    correct_count, wrong_count, hint_count,
+                    streak, memory_level, last_result,
+                    now, next_review, now,
+                    child, question_id,
+                )
+            )
+        else:
+            cur.execute(
+                """
+                INSERT INTO question_progress (
+                    child, question_id, correct_count, wrong_count, hint_count,
+                    streak, memory_level, last_result, last_answered,
+                    next_review, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    child, question_id, correct_count, wrong_count, hint_count,
+                    streak, memory_level, last_result, now,
+                    next_review, now,
+                )
+            )
+
+    conn.commit()
+    conn.close()
+
+
+def get_progress_map(child):
+    """Return {question_id: progress_dict} for the specified child."""
+    init_db()
+    conn = get_connection()
+    rows = conn.execute(
+        """
+        SELECT * FROM question_progress
+        WHERE child = ?
+        """,
+        (child,)
+    ).fetchall()
+    conn.close()
+    return {int(r["question_id"]): dict(r) for r in rows}
+
+
 def get_recent_sessions(limit=20):
     init_db()
     conn = get_connection()
@@ -167,6 +314,18 @@ def get_parent_summary():
         today_max_score = sum(int(r["max_score"] or 0) for r in today_rows)
         today_hint_total = sum(int(r["hint_total"] or 0) for r in today_rows)
 
+        progress_rows = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS learned_questions,
+                SUM(CASE WHEN next_review IS NOT NULL AND next_review <= ? THEN 1 ELSE 0 END) AS due_questions,
+                AVG(memory_level) AS avg_memory_level
+            FROM question_progress
+            WHERE child = ?
+            """,
+            (today, child)
+        ).fetchone()
+
         summaries.append({
             "child": child,
             "today_count": today_count,
@@ -175,6 +334,9 @@ def get_parent_summary():
             "today_score_rate": round(today_score / today_max_score * 100, 1) if today_max_score else 0,
             "today_hint_total": today_hint_total,
             "recent_sessions": [dict(r) for r in all_rows],
+            "learned_questions": int(progress_rows["learned_questions"] or 0),
+            "due_questions": int(progress_rows["due_questions"] or 0),
+            "avg_memory_level": round(float(progress_rows["avg_memory_level"] or 0), 1),
         })
 
     conn.close()
@@ -227,3 +389,34 @@ def get_weak_point_summary(min_answers=1):
         grouped.setdefault(r["child"], []).append(item)
 
     return grouped
+
+
+def get_wrong_question_ids(child, limit=10):
+    """Return recent distinct question IDs that the child answered incorrectly."""
+    init_db()
+    conn = get_connection()
+    rows = conn.execute(
+        """
+        SELECT a.question_id
+        FROM answer_records a
+        JOIN study_sessions s ON s.id = a.session_id
+        WHERE s.child = ?
+          AND a.is_correct = 0
+          AND a.question_id IS NOT NULL
+        ORDER BY a.id DESC
+        """,
+        (child,)
+    ).fetchall()
+    conn.close()
+
+    seen = set()
+    result = []
+    for row in rows:
+        qid = row["question_id"]
+        if qid in seen:
+            continue
+        seen.add(qid)
+        result.append(qid)
+        if len(result) >= limit:
+            break
+    return result

@@ -12,6 +12,9 @@
       <h1>親ダッシュボード</h1>
       <p>学習時間・正答率・最近の履歴を確認できます。</p>
       <p><a href="{{ url_for('index') }}">ドリル画面へ戻る</a></p>
+      {% if parent_message %}
+        <div class="notice">{{ parent_message }}</div>
+      {% endif %}
     </section>
 
     {% if summaries %}
@@ -41,6 +44,14 @@
             </div>
           </div>
 
+          <div class="review-box">
+            <h3>間違えた問題を復習</h3>
+            <p>過去に間違えた問題から、最大10問を出題します。</p>
+            <form action="{{ url_for('start_review') }}" method="post">
+              <input type="hidden" name="child" value="{{ summary.child }}">
+              <button type="submit" class="secondary">{{ summary.child }}の復習を開始</button>
+            </form>
+          </div>
 
           <h3>苦手単元ランキング</h3>
           {% set child_weak_points = weak_points.get(summary.child, []) %}

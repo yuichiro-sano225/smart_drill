@@ -1,10 +1,18 @@
-import csv
-import random
 from pathlib import Path
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session
 
-from database import init_db, save_study_session, get_parent_summary, get_recent_sessions, get_weak_point_summary
+from database import (
+    init_db,
+    save_study_session,
+    update_question_progress,
+    get_progress_map,
+    get_parent_summary,
+    get_recent_sessions,
+    get_weak_point_summary,
+    get_wrong_question_ids,
+)
+from engine import load_questions, build_grade_category_map, select_questions
 
 app = Flask(__name__)
 app.secret_key = "smart-drill-dev-secret"
@@ -16,31 +24,24 @@ CHILDREN = ["長女", "次女"]
 QUIZ_SIZE = 10
 
 
-def load_questions():
-    questions = []
-    with QUESTIONS_CSV.open("r", encoding="utf-8-sig", newline="") as f:
-        reader = csv.DictReader(f)
-        for i, row in enumerate(reader, start=1):
-            row["id"] = i
-            choices = [row["choice1"], row["choice2"], row["choice3"], row["choice4"]]
-            row["choices"] = choices
-            row.setdefault("hint1", "")
-            row.setdefault("hint2", "")
-            row.setdefault("explanation", "")
-            questions.append(row)
-    return questions
+def start_quiz(child, questions, mode="practice"):
+    """Store selected questions in session and move to quiz screen."""
+    selected = questions[:QUIZ_SIZE]
 
+    session["child"] = child
+    session["quiz"] = selected
+    session["current_index"] = 0
+    session["answers"] = []
+    session["started_at"] = datetime.now().isoformat(timespec="seconds")
+    session["quiz_mode"] = mode
+    session.pop("saved_session_id", None)
 
-def build_grade_category_map(questions):
-    result = {"all": sorted({q["category"] for q in questions})}
-    for q in questions:
-        result.setdefault(q["grade"], set()).add(q["category"])
-    return {grade: sorted(categories) for grade, categories in result.items()}
+    return redirect(url_for("quiz"))
 
 
 @app.route("/")
 def index():
-    questions = load_questions()
+    questions = load_questions(QUESTIONS_CSV)
     grades = sorted({q["grade"] for q in questions})
     grade_category_map = build_grade_category_map(questions)
 
@@ -61,17 +62,43 @@ def index():
     )
 
 
+@app.route("/today/start", methods=["POST"])
+def start_today():
+    child = request.form.get("child", "長女")
+
+    all_questions = load_questions(QUESTIONS_CSV)
+    progress_map = get_progress_map(child)
+    questions = select_questions(
+        all_questions,
+        child=child,
+        mode="today",
+        count=QUIZ_SIZE,
+        progress_map=progress_map,
+    )
+
+    if len(questions) == 0:
+        session["error_message"] = "今日のおすすめに出せる問題がまだありません。問題データを確認してください。"
+        session["selected_child"] = child
+        return redirect(url_for("index"))
+
+    return start_quiz(child, questions, mode="today")
+
+
 @app.route("/start", methods=["POST"])
 def start():
     child = request.form.get("child", "長女")
     grade = request.form.get("grade", "all")
     category = request.form.get("category", "all")
 
-    questions = load_questions()
-    if grade != "all":
-        questions = [q for q in questions if q["grade"] == grade]
-    if category != "all":
-        questions = [q for q in questions if q["category"] == category]
+    all_questions = load_questions(QUESTIONS_CSV)
+    questions = select_questions(
+        all_questions,
+        child=child,
+        grade=grade,
+        category=category,
+        mode="practice",
+        count=QUIZ_SIZE,
+    )
 
     if len(questions) == 0:
         session["error_message"] = "この条件の問題はまだありません。別の学年・単元を選んでください。"
@@ -80,22 +107,28 @@ def start():
         session["selected_category"] = category
         return redirect(url_for("index"))
 
-    random.shuffle(questions)
-    selected = questions[:QUIZ_SIZE]
+    return start_quiz(child, questions, mode="practice")
 
-    for q in selected:
-        shuffled = q["choices"][:]
-        random.shuffle(shuffled)
-        q["choices"] = shuffled
 
-    session["child"] = child
-    session["quiz"] = selected
-    session["current_index"] = 0
-    session["answers"] = []
-    session["started_at"] = datetime.now().isoformat(timespec="seconds")
-    session.pop("saved_session_id", None)
+@app.route("/review/start", methods=["POST"])
+def start_review():
+    child = request.form.get("child", "長女")
+    wrong_ids = get_wrong_question_ids(child, limit=QUIZ_SIZE)
 
-    return redirect(url_for("quiz"))
+    questions = load_questions(QUESTIONS_CSV)
+    selected = select_questions(
+        questions,
+        child=child,
+        mode="review",
+        count=QUIZ_SIZE,
+        fixed_question_ids=wrong_ids,
+    )
+
+    if len(selected) == 0:
+        session["parent_message"] = f"{child}さんの復習対象はまだありません。まずはドリルで間違えた問題を作ってください。"
+        return redirect(url_for("parent"))
+
+    return start_quiz(child, selected, mode="review")
 
 
 def current_quiz():
@@ -205,6 +238,10 @@ def result():
             duration_seconds=duration_seconds,
             answers=answers,
         )
+        update_question_progress(
+            child=session.get("child", ""),
+            answers=answers,
+        )
         session["saved_session_id"] = saved_session_id
 
     return render_template(
@@ -229,11 +266,13 @@ def parent():
     summaries = get_parent_summary()
     recent_sessions = get_recent_sessions(limit=20)
     weak_points = get_weak_point_summary()
+    parent_message = session.pop("parent_message", "")
     return render_template(
         "parent.html",
         summaries=summaries,
         recent_sessions=recent_sessions,
         weak_points=weak_points,
+        parent_message=parent_message,
     )
 
 

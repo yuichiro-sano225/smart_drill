@@ -159,3 +159,55 @@ button:hover, .primary:hover {
 .weak-table td:nth-child(3) {
   font-weight: 700;
 }
+
+.notice {
+  background: #ecfeff;
+  color: #155e75;
+  padding: 12px;
+  border-radius: 10px;
+  margin-top: 16px;
+}
+
+.review-box {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 14px;
+  padding: 16px;
+  margin: 20px 0 24px;
+}
+
+.secondary {
+  background: #16a34a;
+  color: white;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+
+
+.recommendation-card {
+  border: 2px solid #bfdbfe;
+}
+
+.recommendation-card h2 {
+  font-size: 28px;
+}
+
+.compact-form {
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.big-button {
+  font-size: 18px;
+  padding: 14px 18px;
+}
+
+.alert {
+  background: #fff1f2;
+  color: #be123c;
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 0;
+}

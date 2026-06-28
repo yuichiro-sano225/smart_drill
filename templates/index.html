@@ -13,14 +13,31 @@
       <p>中学生向け英語ドリル</p>
     </section>
 
-    <section class="card">
-      <h2>ドリル開始</h2>
-
-      {% if error_message %}
+    {% if error_message %}
+      <section class="card">
         <div class="alert">
           {{ error_message }}
         </div>
-      {% endif %}
+      </section>
+    {% endif %}
+
+    <section class="card recommendation-card">
+      <h2>🌟 今日のおすすめ</h2>
+      <p>過去に間違えた問題を優先しつつ、今日やる問題をSmart Drillが選びます。</p>
+      <form action="{{ url_for('start_today') }}" method="post" class="form compact-form">
+        <label>子供</label>
+        <select name="child">
+          {% for child in children %}
+            <option value="{{ child }}" {% if child == selected_child %}selected{% endif %}>{{ child }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="primary big-button">今日のおすすめを始める</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>📖 単元を選んで練習</h2>
+      <p>特定の学年・単元だけを練習したいときはこちら。</p>
 
       <form action="{{ url_for('start') }}" method="post" class="form">
         <label>子供</label>
