@@ -1,13 +1,16 @@
-grade,category,question,choice1,choice2,choice3,choice4,answer,explanation
-中1,単語,「図書館」の英語は？,library,station,school,park,library,library は「図書館」です。
-中1,単語,「駅」の英語は？,river,station,window,teacher,station,station は「駅」です。
-中1,be動詞,I ___ a student.,am,is,are,be,am,I の be動詞は am です。
-中1,be動詞,He ___ my brother.,am,is,are,be,is,He/She/It には is を使います。
-中1,一般動詞,I ___ tennis.,play,plays,playing,played,play,I の現在形では play を使います。
-中2,過去形,I ___ soccer yesterday.,play,plays,played,playing,played,yesterday があるので過去形 played です。
-中2,助動詞,You ___ study English.,can,is,was,does,can,助動詞 can の後ろは動詞の原形です。
-中2,不定詞,I want ___ English.,study,to study,studied,studying,to study,want to do で「〜したい」です。
-中3,現在完了,I have ___ to Kyoto.,go,went,been,going,been,have been to で「〜へ行ったことがある」です。
-中3,受け身,This book is ___ by many students.,read,reads,reading,to read,read,be動詞 + 過去分詞で受け身です。
-中3,関係代名詞,This is the book ___ I bought yesterday.,who,which,when,where,which,物を説明する関係代名詞は which が使えます。
-中3,比較,English is ___ than math for me.,easy,easier,easiest,more easy,easier,than があるので比較級 easier です。
+grade,category,question,choice1,choice2,choice3,choice4,answer,hint1,hint2,explanation
+中1,単語,「図書館」の英語は？,school,library,station,park,library,本を借りる場所です,l から始まる単語です,library は「図書館」です。book と一緒に覚えましょう。
+中1,単語,「机」の英語は？,desk,chair,window,door,desk,勉強するときによく使います,d から始まる単語です,desk は「机」です。chair は「椅子」です。
+中1,be動詞,I ___ a student.,am,is,are,be,am,主語が I のときの be動詞です,I とセットでよく使います,I am a student. で「私は生徒です」です。
+中1,be動詞,She ___ my sister.,am,is,are,be,is,主語が She のときの be動詞です,三人称単数なので is を使います,She is my sister. で「彼女は私の姉妹です」です。
+中1,一般動詞,I ___ soccer after school.,play,plays,playing,played,play,主語が I の現在形です,三単現の s は不要です,I play soccer after school. で「私は放課後サッカーをします」です。
+中1,疑問文,___ you like English?,Do,Does,Are,Is,Do,一般動詞 like の疑問文です,主語が you なので Do を使います,Do you like English? で「あなたは英語が好きですか？」です。
+中1,単語,「朝食」の英語は？,lunch,dinner,breakfast,food,breakfast,朝に食べる食事です,b から始まる単語です,breakfast は「朝食」です。lunch は昼食、dinner は夕食です。
+中1,文法,This is ___ apple.,a,an,the,am,an,apple は母音の音で始まります,a ではなく an を使います,This is an apple. で「これはりんごです」です。
+中2,過去形,I ___ tennis yesterday.,play,plays,played,playing,played,yesterday が過去を表します,play の過去形です,played は play の過去形です。
+中2,助動詞,You ___ study English.,can,are,is,am,can,動詞の原形 study の前に置けます,「〜できる」という意味です,can は「〜できる」を表す助動詞です。
+中2,不定詞,I want ___ soccer.,play,to play,playing,played,to play,want の後ろに続く形です,to + 動詞の原形です,I want to play soccer. で「私はサッカーをしたい」です。
+中2,比較,This book is ___ than that one.,interesting,more interesting,most interesting,interest,more interesting,than があるので比較級です,長い形容詞は more を使います,more interesting than ... で「〜より面白い」です。
+中3,現在完了,I have ___ Kyoto twice.,go,went,been,going,been,have の後ろに入る過去分詞です,経験を表す have been です,I have been to Kyoto twice. で「京都に2回行ったことがあります」です。
+中3,受け身,English is ___ in many countries.,speak,spoke,spoken,speaking,spoken,is + 過去分詞の形です,speak の過去分詞です,English is spoken in many countries. で「英語は多くの国で話されています」です。
+中3,関係代名詞,This is the book ___ I bought yesterday.,who,which,where,when,which,物を説明するときに使います,book を後ろから説明します,which は物を説明する関係代名詞です。

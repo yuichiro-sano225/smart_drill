@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Drill - 結果</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="container">
+    <section class="card feedback-card">
+      <div class="topline">
+        <span>{{ current_no }} / {{ total }}</span>
+        <span>{{ record.score }}点</span>
+      </div>
+
+      {% if record.is_correct %}
+        <h1 class="correct">⭕ 正解！</h1>
+      {% else %}
+        <h1 class="wrong">❌ 不正解</h1>
+      {% endif %}
+
+      <div class="answer-detail">
+        <p><strong>問題：</strong>{{ record.question }}</p>
+        <p><strong>あなたの答え：</strong>{{ record.selected }}</p>
+        <p><strong>正解：</strong>{{ record.answer }}</p>
+        <p><strong>使ったヒント：</strong>{{ record.hint_count }}回</p>
+      </div>
+
+      <div class="explanation">
+        <h2>解説</h2>
+        <p>{{ record.explanation }}</p>
+      </div>
+
+      <a href="{{ url_for('next_question') }}" class="primary link-button">次の問題へ</a>
+    </section>
+  </main>
+</body>
+</html>

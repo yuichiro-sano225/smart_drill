@@ -1,33 +1,114 @@
-{% extends "base.html" %}
-{% block content %}
-<section class="card">
-  <h1>親ダッシュボード</h1>
-  <form method="get" class="inline-form">
-    <select name="child_name">
-      {% for child in children %}<option value="{{ child }}" {% if child == child_name %}selected{% endif %}>{{ child }}</option>{% endfor %}
-    </select>
-    <button type="submit">表示</button>
-  </form>
-  <h2>{{ child_name }}</h2>
-  <div class="summary">
-    <div><strong>{{ stats.total_minutes }}分</strong><span>累計学習時間</span></div>
-    <div><strong>{{ stats.totals.avg_accuracy|round(1) }}%</strong><span>平均正答率</span></div>
-    <div><strong>{{ stats.streak }}日</strong><span>連続学習</span></div>
-    <div><strong>Lv.{{ stats.level }}</strong><span>レベル</span></div>
-  </div>
-  <h2>バッジ</h2>
-  <p>{% if stats.badges %}{% for badge in stats.badges %}<span class="badge">{{ badge }}</span>{% endfor %}{% else %}まだありません{% endif %}</p>
-  <h2>単元ごとの正答率</h2>
-  <table><tr><th>単元</th><th>正解</th><th>総数</th><th>正答率</th></tr>
-  {% for r in stats.by_category %}<tr><td>{{ r.category }}</td><td>{{ r.correct }}</td><td>{{ r.total }}</td><td>{{ r.accuracy }}%</td></tr>{% endfor %}
-  </table>
-  <h2>最近の履歴</h2>
-  <table><tr><th>日時</th><th>モード</th><th>時間</th><th>結果</th><th>正答率</th></tr>
-  {% for s in stats.sessions %}<tr><td>{{ s.started_at }}</td><td>{{ s.mode }}</td><td>{{ s.duration_seconds|minutes }}分</td><td>{{ s.correct_count }}/{{ s.total_questions }}</td><td>{{ s.accuracy }}%</td></tr>{% endfor %}
-  </table>
-  <h2>よく間違える問題</h2>
-  <ul class="answers">
-    {% for w in stats.wrongs %}<li class="ng"><strong>{{ w.question }}</strong><br>正解：{{ w.correct_answer }} / 間違い回数：{{ w.wrong_count }}<br><small>{{ w.explanation }}</small></li>{% endfor %}
-  </ul>
-</section>
-{% endblock %}
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>親ダッシュボード - Smart Drill</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="container">
+    <section class="card hero">
+      <h1>親ダッシュボード</h1>
+      <p>学習時間・正答率・最近の履歴を確認できます。</p>
+      <p><a href="{{ url_for('index') }}">ドリル画面へ戻る</a></p>
+    </section>
+
+    {% if summaries %}
+      {% for summary in summaries %}
+        <section class="card">
+          <h2>{{ summary.child }}</h2>
+          <div class="stats-grid">
+            <div class="stat-box">
+              <div class="stat-label">今日の学習時間</div>
+              <div class="stat-value">{{ summary.today_minutes }}分</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">今日の正答率</div>
+              <div class="stat-value">{{ summary.today_accuracy }}%</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">今日の実施回数</div>
+              <div class="stat-value">{{ summary.today_count }}回</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">今日のスコア率</div>
+              <div class="stat-value">{{ summary.today_score_rate }}%</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">今日のヒント使用</div>
+              <div class="stat-value">{{ summary.today_hint_total }}回</div>
+            </div>
+          </div>
+
+          <h3>最近の学習</h3>
+          {% if summary.recent_sessions %}
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>日時</th>
+                  <th>問題数</th>
+                  <th>正解</th>
+                  <th>正答率</th>
+                  <th>スコア</th>
+                  <th>時間</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for s in summary.recent_sessions %}
+                  <tr>
+                    <td>{{ s.created_at[:16].replace('T', ' ') }}</td>
+                    <td>{{ s.total_questions }}</td>
+                    <td>{{ s.correct_count }}</td>
+                    <td>{{ s.accuracy }}%</td>
+                    <td>{{ s.total_score }}/{{ s.max_score }}</td>
+                    <td>{{ (s.duration_seconds // 60) }}分{{ (s.duration_seconds % 60) }}秒</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <p>まだ学習履歴がありません。</p>
+          {% endif %}
+        </section>
+      {% endfor %}
+    {% else %}
+      <section class="card">
+        <p>まだ学習履歴がありません。まずはドリルを1回完了してください。</p>
+      </section>
+    {% endif %}
+
+    <section class="card">
+      <h2>全体の最近の履歴</h2>
+      {% if recent_sessions %}
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>日時</th>
+              <th>子供</th>
+              <th>問題数</th>
+              <th>正答率</th>
+              <th>スコア率</th>
+              <th>ヒント</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in recent_sessions %}
+              <tr>
+                <td>{{ s.created_at[:16].replace('T', ' ') }}</td>
+                <td>{{ s.child }}</td>
+                <td>{{ s.total_questions }}</td>
+                <td>{{ s.accuracy }}%</td>
+                <td>{{ s.score_rate }}%</td>
+                <td>{{ s.hint_total }}回</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>履歴はまだありません。</p>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>

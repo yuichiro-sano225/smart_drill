@@ -1,12 +1,56 @@
-{% extends "base.html" %}
-{% block content %}
-<section class="card">
-  <p class="progress">{{ current }} / {{ total }}</p>
-  <h1>{{ q.question }}</h1>
-  <form method="post" class="choices">
-    {% for choice in choices %}
-      <button type="submit" name="answer" value="{{ choice }}">{{ choice }}</button>
-    {% endfor %}
-  </form>
-</section>
-{% endblock %}
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Drill - 問題</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="container">
+    <section class="card">
+      <div class="topline">
+        <span>{{ child }}</span>
+        <span>{{ current_no }} / {{ total }}</span>
+      </div>
+      <p class="tag">{{ question.grade }} / {{ question.category }}</p>
+      <h1 class="question">{{ question.question }}</h1>
+
+      <div class="hint-area">
+        <button type="button" id="hintBtn" class="secondary">ヒントを見る</button>
+        <div id="hintBox" class="hint-box"></div>
+      </div>
+
+      <form action="{{ url_for('answer') }}" method="post" id="answerForm" class="choices">
+        <input type="hidden" name="hint_count" id="hintCount" value="0">
+        {% for choice in question.choices %}
+          <button type="submit" name="selected" value="{{ choice }}" class="choice">{{ choice }}</button>
+        {% endfor %}
+      </form>
+    </section>
+  </main>
+
+  <script>
+    const hints = [{{ question.hint1|tojson }}, {{ question.hint2|tojson }}];
+    let hintCount = 0;
+    const hintBtn = document.getElementById('hintBtn');
+    const hintBox = document.getElementById('hintBox');
+    const hintCountInput = document.getElementById('hintCount');
+
+    hintBtn.addEventListener('click', () => {
+      if (hintCount < hints.length) {
+        hintCount += 1;
+        const div = document.createElement('div');
+        div.className = 'hint-item';
+        div.textContent = `💡 ヒント${hintCount}: ${hints[hintCount - 1]}`;
+        hintBox.appendChild(div);
+        hintCountInput.value = hintCount;
+      }
+      if (hintCount >= hints.length) {
+        hintBtn.disabled = true;
+        hintBtn.textContent = 'ヒントはここまで';
+      }
+    });
+  </script>
+</body>
+</html>

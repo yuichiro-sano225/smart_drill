@@ -1,22 +1,62 @@
-{% extends "base.html" %}
-{% block content %}
-<section class="card">
-  <h1>結果</h1>
-  <div class="summary">
-    <div><strong>{{ correct }} / {{ total }}</strong><span>正解</span></div>
-    <div><strong>{{ accuracy }}%</strong><span>正答率</span></div>
-    <div><strong>{{ duration_seconds|minutes }}分</strong><span>学習時間</span></div>
-  </div>
-  <h2>解答一覧</h2>
-  <ul class="answers">
-    {% for a in answers %}
-      <li class="{{ 'ok' if a.is_correct else 'ng' }}">
-        <strong>{{ '○' if a.is_correct else '×' }} {{ a.question }}</strong><br>
-        あなたの答え：{{ a.selected_answer }} / 正解：{{ a.correct_answer }}<br>
-        <small>{{ a.explanation }}</small>
-      </li>
-    {% endfor %}
-  </ul>
-  <p><a class="button" href="{{ url_for('index') }}">もう一度やる</a> <a class="button secondary" href="{{ url_for('parent') }}">親画面を見る</a></p>
-</section>
-{% endblock %}
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Drill - 最終結果</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="container">
+    <section class="card hero">
+      <h1>結果</h1>
+      <p>{{ child }} さん、おつかれさま！</p>
+    </section>
+
+    <section class="stats">
+      <div class="stat card"><span>正解数</span><strong>{{ correct }} / {{ total }}</strong></div>
+      <div class="stat card"><span>正答率</span><strong>{{ accuracy }}%</strong></div>
+      <div class="stat card"><span>スコア</span><strong>{{ total_score }} / {{ max_score }}</strong></div>
+      <div class="stat card"><span>スコア率</span><strong>{{ score_rate }}%</strong></div>
+      <div class="stat card"><span>ヒント使用率</span><strong>{{ hint_rate }}%</strong></div>
+      <div class="stat card"><span>学習時間</span><strong>{{ duration_seconds }}秒</strong></div>
+    </section>
+
+    <section class="card">
+      <h2>回答一覧</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>問題</th>
+              <th>結果</th>
+              <th>答え</th>
+              <th>正解</th>
+              <th>ヒント</th>
+              <th>点</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in answers %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ a.question }}</td>
+              <td>{% if a.is_correct %}⭕{% else %}❌{% endif %}</td>
+              <td>{{ a.selected }}</td>
+              <td>{{ a.answer }}</td>
+              <td>{{ a.hint_count }}</td>
+              <td>{{ a.score }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="actions">
+      <a href="{{ url_for('index') }}" class="primary link-button">もう一度やる</a>
+    </section>
+  </main>
+</body>
+</html>
