@@ -1,20 +1,72 @@
 import sqlite3
 from pathlib import Path
 from datetime import datetime, date, timedelta
+import json
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_DIR = BASE_DIR / "database"
 DB_PATH = DB_DIR / "smart_drill.db"
 
-# 連続正解・記憶レベルに応じた次回復習間隔（日）
-REVIEW_INTERVAL_DAYS = {
-    0: 1,
-    1: 1,
-    2: 3,
-    3: 7,
-    4: 14,
-    5: 30,
+CONFIG_DIR = BASE_DIR / "config"
+REVIEW_INTERVALS_PATH = CONFIG_DIR / "review_intervals.json"
+
+DEFAULT_REVIEW_INTERVALS = {
+    "wrong": 1,
+    "hint_used": 1,
+    "streak": {
+        "1": 1,
+        "2": 3,
+        "3": 7,
+        "4": 14,
+        "5": 30,
+    },
 }
+
+
+def load_review_intervals():
+    """Load review interval settings from config/review_intervals.json.
+
+    If the file is missing or broken, use safe defaults so the app still runs.
+    """
+    if not REVIEW_INTERVALS_PATH.exists():
+        return DEFAULT_REVIEW_INTERVALS
+
+    try:
+        with REVIEW_INTERVALS_PATH.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return DEFAULT_REVIEW_INTERVALS
+
+    merged = dict(DEFAULT_REVIEW_INTERVALS)
+    merged["streak"] = dict(DEFAULT_REVIEW_INTERVALS["streak"])
+
+    if isinstance(data, dict):
+        if isinstance(data.get("wrong"), int):
+            merged["wrong"] = data["wrong"]
+        if isinstance(data.get("hint_used"), int):
+            merged["hint_used"] = data["hint_used"]
+        if isinstance(data.get("streak"), dict):
+            for key, value in data["streak"].items():
+                if isinstance(value, int):
+                    merged["streak"][str(key)] = value
+
+    return merged
+
+
+def _days_for_streak(streak, intervals):
+    streak_map = intervals.get("streak", {})
+    if streak <= 0:
+        return intervals.get("wrong", 1)
+
+    # 連続正解が設定の最大値を超えた場合は、最大値の間隔を使う。
+    available = sorted(int(k) for k in streak_map.keys() if str(k).isdigit())
+    if not available:
+        return 1
+
+    key = min(streak, max(available))
+    while key > 0 and str(key) not in streak_map:
+        key -= 1
+    return int(streak_map.get(str(key), 1))
 
 
 def get_connection():
@@ -148,13 +200,17 @@ def save_study_session(child, started_at, ended_at, duration_seconds, answers):
     return session_id
 
 
-def _next_review_date(is_correct, hint_count, memory_level):
+def _next_review_date(is_correct, hint_count, streak):
     today = date.today()
+    intervals = load_review_intervals()
+
     if not is_correct:
-        return (today + timedelta(days=1)).isoformat()
-    if hint_count > 0:
-        return (today + timedelta(days=2)).isoformat()
-    days = REVIEW_INTERVAL_DAYS.get(memory_level, 30)
+        days = int(intervals.get("wrong", 1))
+    elif hint_count > 0:
+        days = int(intervals.get("hint_used", 1))
+    else:
+        days = _days_for_streak(streak, intervals)
+
     return (today + timedelta(days=days)).isoformat()
 
 
@@ -207,7 +263,7 @@ def update_question_progress(child, answers):
             memory_level = max(0, memory_level - 2)
             last_result = "wrong"
 
-        next_review = _next_review_date(is_correct, used_hint_count, memory_level)
+        next_review = _next_review_date(is_correct, used_hint_count, streak)
 
         if row:
             cur.execute(
