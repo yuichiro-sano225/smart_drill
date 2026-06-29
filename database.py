@@ -143,6 +143,12 @@ def init_db():
         """
     )
 
+    # v2.2: 直近の回答でヒントを使ったかを保持する。
+    # 既存DBにも安全に列を追加する。
+    existing_columns = {row[1] for row in cur.execute("PRAGMA table_info(question_progress)").fetchall()}
+    if "last_hint_count" not in existing_columns:
+        cur.execute("ALTER TABLE question_progress ADD COLUMN last_hint_count INTEGER DEFAULT 0")
+
     conn.commit()
     conn.close()
 
@@ -200,13 +206,13 @@ def save_study_session(child, started_at, ended_at, duration_seconds, answers):
     return session_id
 
 
-def _next_review_date(is_correct, hint_count, streak):
+def _next_review_date(last_result, streak):
     today = date.today()
     intervals = load_review_intervals()
 
-    if not is_correct:
+    if last_result == "wrong":
         days = int(intervals.get("wrong", 1))
-    elif hint_count > 0:
+    elif last_result == "hint":
         days = int(intervals.get("hint_used", 1))
     else:
         days = _days_for_streak(streak, intervals)
@@ -215,7 +221,13 @@ def _next_review_date(is_correct, hint_count, streak):
 
 
 def update_question_progress(child, answers):
-    """Update per-question learning state after a quiz result is saved."""
+    """Update per-question learning state after a quiz result is saved.
+
+    v2.2 rule:
+    - Correct without hint: streak increases, memory_level follows streak up to 5.
+    - Correct with hint: not treated as mastered; streak resets and next review is soon.
+    - Wrong: streak and memory_level reset.
+    """
     init_db()
     now = datetime.now().isoformat(timespec="seconds")
     conn = get_connection()
@@ -248,22 +260,24 @@ def update_question_progress(child, answers):
 
         hint_count += used_hint_count
 
-        if is_correct:
+        if is_correct and used_hint_count == 0:
             correct_count += 1
             streak += 1
-            # ヒントなし正解は記憶レベルを上げる。ヒントあり正解は定着扱いを弱める。
-            if used_hint_count == 0:
-                memory_level = min(5, memory_level + 1)
-            else:
-                memory_level = max(1, memory_level)
+            memory_level = min(5, streak)
             last_result = "correct"
+        elif is_correct and used_hint_count > 0:
+            correct_count += 1
+            # ヒントあり正解は「自力で定着」とは扱わない。
+            streak = 0
+            memory_level = max(0, memory_level)
+            last_result = "hint"
         else:
             wrong_count += 1
             streak = 0
-            memory_level = max(0, memory_level - 2)
+            memory_level = 0
             last_result = "wrong"
 
-        next_review = _next_review_date(is_correct, used_hint_count, streak)
+        next_review = _next_review_date(last_result, streak)
 
         if row:
             cur.execute(
@@ -271,13 +285,13 @@ def update_question_progress(child, answers):
                 UPDATE question_progress
                 SET correct_count = ?, wrong_count = ?, hint_count = ?,
                     streak = ?, memory_level = ?, last_result = ?,
-                    last_answered = ?, next_review = ?, updated_at = ?
+                    last_hint_count = ?, last_answered = ?, next_review = ?, updated_at = ?
                 WHERE child = ? AND question_id = ?
                 """,
                 (
                     correct_count, wrong_count, hint_count,
                     streak, memory_level, last_result,
-                    now, next_review, now,
+                    used_hint_count, now, next_review, now,
                     child, question_id,
                 )
             )
@@ -286,14 +300,14 @@ def update_question_progress(child, answers):
                 """
                 INSERT INTO question_progress (
                     child, question_id, correct_count, wrong_count, hint_count,
-                    streak, memory_level, last_result, last_answered,
-                    next_review, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    streak, memory_level, last_result, last_hint_count,
+                    last_answered, next_review, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     child, question_id, correct_count, wrong_count, hint_count,
-                    streak, memory_level, last_result, now,
-                    next_review, now,
+                    streak, memory_level, last_result, used_hint_count,
+                    now, next_review, now,
                 )
             )
 
