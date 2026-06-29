@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Drill - JSONインポート</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="container">
+    <section class="card hero">
+      <h1>問題JSONインポート</h1>
+      <p>ChatGPTで作ったSmart Drill形式のJSONを貼り付けます。</p>
+    </section>
+
+    {% if message %}
+      <section class="card alert success">{{ message }}</section>
+    {% endif %}
+
+    {% if errors %}
+      <section class="card alert error">
+        <h2>確認が必要です</h2>
+        <ul>
+          {% for error in errors %}
+            <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+
+    <section class="card">
+      <h2>1. JSONを貼り付け</h2>
+      <p class="muted">配列 <code>[...]</code> または <code>{"questions": [...]}</code> の形に対応しています。</p>
+      <p class="muted">画像・音声を使う場合は、JSONの <code>media.file</code> に元ファイル名を書き、下のファイル選択で同じファイルを選んでください。</p>
+      <form action="{{ url_for('import_questions_preview') }}" method="post" enctype="multipart/form-data" class="form">
+        <textarea name="questions_json" class="textarea-json" placeholder='[{"grade":"中2","subject":"英語","category":"リスニング","question":"音声を聞いて正しい英文を選びなさい。","choices":["She is going to the library.","She is going to the station.","She is going to the park.","She is going to the hospital."],"answer":"She is going to the library.","hint1":"行き先に注目しましょう。","hint2":"library という語が聞こえます。","explanation":"音声では library と言っています。","media":{"type":"audio","file":"listening_001.mp3"},"importance":4,"difficulty":2,"tags":["リスニング","場所"],"source":"塾プリント"}]'>{{ raw_json }}</textarea>
+
+        <label>画像・音声ファイル（任意・複数可）</label>
+        <input type="file" name="media_files" multiple accept="image/*,audio/*">
+        <p class="muted">対応: 画像 png/jpg/jpeg/gif/webp、音声 mp3/wav/m4a/ogg</p>
+
+        <button type="submit" class="primary">プレビュー</button>
+      </form>
+    </section>
+
+    {% if preview %}
+      <section class="card">
+        <h2>2. 登録前プレビュー</h2>
+        <p class="muted">AI生成内容は必ず確認してください。画像・音声付き問題は、プレビュー時に選択したファイルが自動で <code>static/uploads/images</code> または <code>static/uploads/audio</code> に保存されます。</p>
+        <div class="preview-list">
+          {% for q in preview %}
+            <div class="preview-item">
+              <div class="preview-meta">{{ q.grade }} / {{ q.category }}{% if q.importance %} / 重要度 {{ q.importance }}{% endif %}{% if q.difficulty %} / 難易度 {{ q.difficulty }}{% endif %}</div>
+              <div class="preview-question">{{ loop.index }}. {{ q.question }}</div>
+              {% if q.media_type and q.media_file %}
+                <div class="muted">メディア: {{ q.media_type }} / {{ q.media_file }}</div>
+                {% if q.media_type == 'image' %}
+                  <div class="question-image-wrap">
+                    <img class="question-image" src="{{ url_for('static', filename='uploads/' ~ q.media_file) }}" alt="プレビュー画像">
+                  </div>
+                {% elif q.media_type == 'audio' %}
+                  <div class="question-audio-wrap">
+                    <audio class="question-audio" controls preload="metadata">
+                      <source src="{{ url_for('static', filename='uploads/' ~ q.media_file) }}">
+                    </audio>
+                  </div>
+                {% elif q.image %}
+                  <div class="muted">画像: {{ q.image }}</div>
+                {% endif %}
+              {% endif %}
+              <ol class="preview-choices">
+                <li>{{ q.choice1 }}</li>
+                <li>{{ q.choice2 }}</li>
+                <li>{{ q.choice3 }}</li>
+                <li>{{ q.choice4 }}</li>
+              </ol>
+              <div><strong>正解:</strong> {{ q.answer }}</div>
+              {% if q.hint1 %}<div><strong>ヒント1:</strong> {{ q.hint1 }}</div>{% endif %}
+              {% if q.hint2 %}<div><strong>ヒント2:</strong> {{ q.hint2 }}</div>{% endif %}
+              {% if q.explanation %}<div><strong>解説:</strong> {{ q.explanation }}</div>{% endif %}
+              {% if q.tags %}<div class="muted">タグ: {{ q.tags }}</div>{% endif %}
+              {% if q.source %}<div class="muted">出典: {{ q.source }}</div>{% endif %}
+            </div>
+          {% endfor %}
+        </div>
+
+        {% if not errors %}
+          <form action="{{ url_for('import_questions_save') }}" method="post" class="form">
+            <input type="hidden" name="raw_json" value='{{ raw_json | e }}'>
+            <button type="submit" class="primary">この内容で登録</button>
+          </form>
+        {% endif %}
+      </section>
+    {% endif %}
+
+    <section class="actions">
+      <a href="{{ url_for('index') }}" class="secondary link-button">トップへ戻る</a>
+    </section>
+  </main>
+</body>
+</html>

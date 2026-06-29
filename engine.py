@@ -6,21 +6,223 @@ from datetime import date, datetime
 QUIZ_SIZE = 10
 
 
+def _split_tags(value):
+    if not value:
+        return []
+    if isinstance(value, list):
+        return [str(v).strip() for v in value if str(v).strip()]
+    return [v.strip() for v in str(value).replace(";", ",").split(",") if v.strip()]
+
+
 def load_questions(questions_csv: Path):
-    """Load questions from CSV and normalize common fields."""
+    """Load questions from CSV and normalize common fields.
+
+    The CSV can contain the old columns only, or newer optional columns such as:
+    subject, image, difficulty, importance, tags, source.
+    """
     questions = []
+    if not questions_csv.exists():
+        return questions
+
     with questions_csv.open("r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         for i, row in enumerate(reader, start=1):
+            row = dict(row)
             row["id"] = i
-            choices = [row["choice1"], row["choice2"], row["choice3"], row["choice4"]]
-            row["choices"] = choices
+            row.setdefault("subject", row.get("教科", "英語") or "英語")
+            row.setdefault("grade", "")
+            row.setdefault("category", "")
+            row.setdefault("question", "")
             row.setdefault("hint1", "")
             row.setdefault("hint2", "")
             row.setdefault("explanation", "")
+            row.setdefault("difficulty", row.get("難易度", ""))
+            row.setdefault("importance", row.get("重要度", ""))
+            row.setdefault("tags", row.get("タグ", ""))
+            row.setdefault("source", row.get("出典", ""))
+
+            # v2.5: media_type/media_file is the new generic media format.
+            # Legacy image/image_filename columns are still supported.
+            legacy_image = row.get("image") or row.get("image_filename") or row.get("画像") or ""
+            row.setdefault("media_type", row.get("media_type") or row.get("メディア種別") or ("image" if legacy_image else ""))
+            row.setdefault("media_file", row.get("media_file") or row.get("メディアファイル") or legacy_image)
+            row.setdefault("image", legacy_image)
+            row.setdefault("image_filename", legacy_image)
+
+            choices = [
+                row.get("choice1", ""),
+                row.get("choice2", ""),
+                row.get("choice3", ""),
+                row.get("choice4", ""),
+            ]
+            row["choices"] = choices
+            row["tags_list"] = _split_tags(row.get("tags"))
             questions.append(row)
     return questions
 
+
+def normalize_import_questions(raw_data):
+    """Normalize Smart Drill JSON into rows that can be appended to questions.csv.
+
+    Accepts either:
+    - [ {...}, {...} ]
+    - { "questions": [ {...}, {...} ] }
+
+    Returns (questions, errors). Each normalized question has choice1-4 fields.
+    """
+    if isinstance(raw_data, dict):
+        items = raw_data.get("questions", [])
+    else:
+        items = raw_data
+
+    if not isinstance(items, list):
+        return [], ["JSONは配列、または {\"questions\": [...]} の形にしてください。"]
+
+    normalized = []
+    errors = []
+
+    for idx, item in enumerate(items, start=1):
+        if not isinstance(item, dict):
+            errors.append(f"{idx}件目: オブジェクトではありません。")
+            continue
+
+        grade = str(item.get("grade") or item.get("学年") or "").strip()
+        subject = str(item.get("subject") or item.get("教科") or "英語").strip()
+        category = str(item.get("category") or item.get("単元") or "").strip()
+        question = str(item.get("question") or item.get("問題") or "").strip()
+        answer = str(item.get("answer") or item.get("正解") or "").strip()
+
+        choices = item.get("choices") or item.get("選択肢")
+        if not choices:
+            choices = [item.get(f"choice{i}", "") for i in range(1, 5)]
+        choices = [str(c).strip() for c in choices if str(c).strip()]
+
+        if not grade:
+            errors.append(f"{idx}件目: grade（学年）がありません。")
+        if not category:
+            errors.append(f"{idx}件目: category（単元）がありません。")
+        if not question:
+            errors.append(f"{idx}件目: question（問題文）がありません。")
+        if len(choices) != 4:
+            errors.append(f"{idx}件目: choices（選択肢）は4つ必要です。")
+        if not answer:
+            errors.append(f"{idx}件目: answer（正解）がありません。")
+        elif choices and answer not in choices:
+            errors.append(f"{idx}件目: answer が choices に含まれていません。")
+
+        if any(e.startswith(f"{idx}件目") for e in errors):
+            continue
+
+        tags = item.get("tags") or item.get("タグ") or []
+        if isinstance(tags, list):
+            tags_text = ",".join(str(t).strip() for t in tags if str(t).strip())
+        else:
+            tags_text = str(tags).strip()
+
+        media = item.get("media") or item.get("メディア") or {}
+        media_type = ""
+        media_file = ""
+        if isinstance(media, dict):
+            media_type = str(media.get("type") or media.get("種別") or "").strip()
+            media_file = str(media.get("file") or media.get("ファイル") or "").strip()
+
+        legacy_image = str(
+            item.get("image")
+            or item.get("image_filename")
+            or item.get("画像")
+            or ""
+        ).strip()
+        legacy_audio = str(item.get("audio") or item.get("音声") or "").strip()
+
+        if legacy_image and not media_file:
+            media_type = "image"
+            media_file = legacy_image
+        if legacy_audio and not media_file:
+            media_type = "audio"
+            media_file = legacy_audio
+
+        media_type = media_type.lower()
+        if media_file and not media_type:
+            suffix = Path(media_file).suffix.lower()
+            if suffix in {".png", ".jpg", ".jpeg", ".gif", ".webp"}:
+                media_type = "image"
+            elif suffix in {".mp3", ".wav", ".m4a", ".ogg"}:
+                media_type = "audio"
+
+        if media_type and media_type not in {"image", "audio"}:
+            errors.append(f"{idx}件目: media.type は image または audio にしてください。")
+            continue
+
+        normalized.append({
+            "subject": subject,
+            "grade": grade,
+            "category": category,
+            "question": question,
+            "choice1": choices[0],
+            "choice2": choices[1],
+            "choice3": choices[2],
+            "choice4": choices[3],
+            "answer": answer,
+            "hint1": str(item.get("hint1") or item.get("ヒント1") or "").strip(),
+            "hint2": str(item.get("hint2") or item.get("ヒント2") or "").strip(),
+            "explanation": str(item.get("explanation") or item.get("解説") or "").strip(),
+            "media_type": media_type,
+            "media_file": media_file,
+            "image": media_file if media_type == "image" else "",
+            "difficulty": str(item.get("difficulty") or item.get("難易度") or "").strip(),
+            "importance": str(item.get("importance") or item.get("重要度") or "").strip(),
+            "tags": tags_text,
+            "source": str(item.get("source") or item.get("出典") or "").strip(),
+        })
+
+    return normalized, errors
+
+
+def append_questions_to_csv(questions_csv: Path, new_questions):
+    """Append normalized questions to questions.csv, preserving existing rows.
+
+    If the existing CSV has fewer columns, this rewrites the file with the new
+    standard columns. Existing row order is preserved, so row-number question IDs
+    remain stable.
+    """
+    standard_fields = [
+        "subject", "grade", "category", "question",
+        "choice1", "choice2", "choice3", "choice4", "answer",
+        "hint1", "hint2", "explanation",
+        "media_type", "media_file", "image",
+        "difficulty", "importance", "tags", "source",
+    ]
+
+    rows = []
+    existing_fields = []
+    if questions_csv.exists():
+        with questions_csv.open("r", encoding="utf-8-sig", newline="") as f:
+            reader = csv.DictReader(f)
+            existing_fields = reader.fieldnames or []
+            rows = [dict(row) for row in reader]
+
+    fieldnames = []
+    for field in standard_fields + existing_fields:
+        if field not in fieldnames:
+            fieldnames.append(field)
+
+    for row in rows:
+        row.setdefault("subject", row.get("教科", "英語") or "英語")
+        legacy_image = row.get("image") or row.get("image_filename", "")
+        row.setdefault("media_type", "image" if legacy_image else "")
+        row.setdefault("media_file", legacy_image)
+        row.setdefault("image", legacy_image)
+
+    rows.extend(new_questions)
+
+    questions_csv.parent.mkdir(parents=True, exist_ok=True)
+    with questions_csv.open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: row.get(field, "") for field in fieldnames})
+
+    return len(new_questions)
 
 def build_grade_category_map(questions):
     """Return available categories for each grade."""

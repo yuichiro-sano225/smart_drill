@@ -16,6 +16,24 @@
       <p class="tag">{{ question.grade }} / {{ question.category }}</p>
       <h1 class="question">{{ question.question }}</h1>
 
+      {% if question.media_type == 'image' and question.media_file %}
+        <div class="question-image-wrap">
+          <img class="question-image" src="{{ url_for('static', filename='uploads/' ~ question.media_file) }}" alt="問題画像">
+        </div>
+      {% elif question.media_type == 'audio' and question.media_file %}
+        <div class="question-audio-wrap">
+          <p class="muted">音声を聞いて答えましょう。</p>
+          <audio class="question-audio" controls preload="metadata">
+            <source src="{{ url_for('static', filename='uploads/' ~ question.media_file) }}">
+            このブラウザでは音声再生に対応していません。
+          </audio>
+        </div>
+      {% elif question.image %}
+        <div class="question-image-wrap">
+          <img class="question-image" src="{{ url_for('static', filename='uploads/' ~ question.image) }}" alt="問題画像">
+        </div>
+      {% endif %}
+
       <div class="hint-area">
         <button type="button" id="hintBtn" class="secondary">ヒントを見る</button>
         <div id="hintBox" class="hint-box"></div>
