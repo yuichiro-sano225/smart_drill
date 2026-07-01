@@ -28,8 +28,44 @@
       </section>
     {% endif %}
 
+    {% if import_result %}
+      <section class="card result-summary">
+        <h2>登録結果</h2>
+        <div class="summary-grid">
+          <div class="summary-box">
+            <div class="summary-label">登録した問題数</div>
+            <div class="summary-value">{{ import_result.registered }}問</div>
+          </div>
+          <div class="summary-box">
+            <div class="summary-label">スキップした問題数</div>
+            <div class="summary-value">{{ import_result.skipped }}問</div>
+          </div>
+          <div class="summary-box">
+            <div class="summary-label">コピーした画像数</div>
+            <div class="summary-value">{{ import_result.images }}件</div>
+          </div>
+          <div class="summary-box">
+            <div class="summary-label">コピーした音声数</div>
+            <div class="summary-value">{{ import_result.audio }}件</div>
+          </div>
+        </div>
+      </section>
+    {% endif %}
+
+
     <section class="card">
-      <h2>1. JSONを貼り付け</h2>
+      <h2>1. Smart Drill Package（.sdp / .zip）を取り込む</h2>
+      <p class="muted">推奨形式です。<code>questions.json</code> と <code>images/</code>・<code>audio/</code> をまとめたZIPをアップロードできます。</p>
+      <form action="{{ url_for('import_sdp_preview') }}" method="post" enctype="multipart/form-data" class="form">
+        <label>SDPファイル</label>
+        <input type="file" name="sdp_file" accept=".sdp,.zip,application/zip">
+        <button type="submit" class="primary">SDPをプレビュー</button>
+      </form>
+      <p class="muted small-note">構成例: <code>package.json</code> / <code>questions.json</code> / <code>images/</code> / <code>audio/</code></p>
+    </section>
+
+    <section class="card">
+      <h2>2. JSONを貼り付け</h2>
       <p class="muted">配列 <code>[...]</code> または <code>{"questions": [...]}</code> の形に対応しています。</p>
       <p class="muted">画像・音声を使う場合は、JSONの <code>media.file</code> に元ファイル名を書き、下のファイル選択で同じファイルを選んでください。</p>
       <form action="{{ url_for('import_questions_preview') }}" method="post" enctype="multipart/form-data" class="form">
@@ -45,52 +81,133 @@
 
     {% if preview %}
       <section class="card">
-        <h2>2. 登録前プレビュー</h2>
-        <p class="muted">AI生成内容は必ず確認してください。画像・音声付き問題は、プレビュー時に選択したファイルが自動で <code>static/uploads/images</code> または <code>static/uploads/audio</code> に保存されます。</p>
-        <div class="preview-list">
-          {% for q in preview %}
-            <div class="preview-item">
-              <div class="preview-meta">{{ q.grade }} / {{ q.category }}{% if q.importance %} / 重要度 {{ q.importance }}{% endif %}{% if q.difficulty %} / 難易度 {{ q.difficulty }}{% endif %}</div>
-              <div class="preview-question">{{ loop.index }}. {{ q.question }}</div>
-              {% if q.media_type and q.media_file %}
-                <div class="muted">メディア: {{ q.media_type }} / {{ q.media_file }}</div>
-                {% if q.media_type == 'image' %}
-                  <div class="question-image-wrap">
-                    <img class="question-image" src="{{ url_for('static', filename='uploads/' ~ q.media_file) }}" alt="プレビュー画像">
-                  </div>
-                {% elif q.media_type == 'audio' %}
-                  <div class="question-audio-wrap">
-                    <audio class="question-audio" controls preload="metadata">
-                      <source src="{{ url_for('static', filename='uploads/' ~ q.media_file) }}">
-                    </audio>
-                  </div>
-                {% elif q.image %}
-                  <div class="muted">画像: {{ q.image }}</div>
-                {% endif %}
-              {% endif %}
-              <ol class="preview-choices">
-                <li>{{ q.choice1 }}</li>
-                <li>{{ q.choice2 }}</li>
-                <li>{{ q.choice3 }}</li>
-                <li>{{ q.choice4 }}</li>
-              </ol>
-              <div><strong>正解:</strong> {{ q.answer }}</div>
-              {% if q.hint1 %}<div><strong>ヒント1:</strong> {{ q.hint1 }}</div>{% endif %}
-              {% if q.hint2 %}<div><strong>ヒント2:</strong> {{ q.hint2 }}</div>{% endif %}
-              {% if q.explanation %}<div><strong>解説:</strong> {{ q.explanation }}</div>{% endif %}
-              {% if q.tags %}<div class="muted">タグ: {{ q.tags }}</div>{% endif %}
-              {% if q.source %}<div class="muted">出典: {{ q.source }}</div>{% endif %}
-            </div>
-          {% endfor %}
+        <h2>3. 登録前プレビュー</h2>
+        <p class="muted">AI生成内容は必ず確認してください。登録する問題だけチェックを付けます。</p>
+
+        {% if source_type == 'sdp' %}
+          <div class="sdp-success">SDP読み込み成功</div>
+        {% endif %}
+
+        {% if package_summary %}
+          <div class="package-summary">
+            <h3>package.json</h3>
+            <dl class="package-meta-grid">
+              <div>
+                <dt>title</dt>
+                <dd>{{ package_summary.title or '未設定' }}</dd>
+              </div>
+              <div>
+                <dt>subject</dt>
+                <dd>{{ package_summary.subject or '未設定' }}</dd>
+              </div>
+              <div>
+                <dt>grade</dt>
+                <dd>{{ package_summary.grade or '未設定' }}</dd>
+              </div>
+              <div>
+                <dt>source</dt>
+                <dd>{{ package_summary.source or '未設定' }}</dd>
+              </div>
+              <div>
+                <dt>questions</dt>
+                <dd>{{ package_summary.questions_count }}件</dd>
+              </div>
+              <div>
+                <dt>images</dt>
+                <dd>{{ package_summary.images_count }}件</dd>
+              </div>
+              <div>
+                <dt>audio</dt>
+                <dd>{{ package_summary.audio_count }}件</dd>
+              </div>
+            </dl>
+          </div>
+        {% endif %}
+
+        <div class="import-summary">
+          <span class="pill ok">候補 {{ preview|length }}問</span>
+          <span class="pill warning">注意あり {{ preview|selectattr('warnings')|list|length }}問</span>
         </div>
 
-        {% if not errors %}
-          <form action="{{ url_for('import_questions_save') }}" method="post" class="form">
-            <input type="hidden" name="raw_json" value='{{ raw_json | e }}'>
-            <button type="submit" class="primary">この内容で登録</button>
-          </form>
-        {% endif %}
+        <form action="{{ url_for('import_questions_save') }}" method="post" class="form">
+          <div class="preview-toolbar">
+            <label class="check-row">
+              <input type="checkbox" id="toggle-all" checked>
+              すべて選択 / 解除
+            </label>
+          </div>
+
+          <div class="preview-list">
+            {% for q in preview %}
+              <div class="preview-item {{ 'has-warning' if q.warnings else '' }}">
+                <label class="check-row preview-select">
+                  <input type="checkbox" name="include" value="{{ q.preview_index }}" checked class="include-checkbox">
+                  <strong>この問題を登録する</strong>
+                </label>
+
+                <div class="preview-meta">
+                  {{ q.grade }} / {{ q.category }}{% if q.importance %} / 重要度 {{ q.importance }}{% endif %}{% if q.difficulty %} / 難易度 {{ q.difficulty }}{% endif %}
+                </div>
+                <div class="preview-question">{{ loop.index }}. {{ q.question }}</div>
+
+                {% if q.warnings %}
+                  <div class="validation-box warning">
+                    <strong>確認ポイント</strong>
+                    <ul>
+                      {% for warning in q.warnings %}
+                        <li>{{ warning }}</li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                {% else %}
+                  <div class="validation-box ok">基本チェックOK</div>
+                {% endif %}
+
+                {% if q.media_type and q.media_file %}
+                  <div class="muted">メディア: {{ q.media_type }} / {{ q.media_file }}</div>
+                  {% if q.media_type == 'image' %}
+                    <div class="question-image-wrap">
+                      <img class="question-image" src="{{ url_for('static', filename='uploads/' ~ q.media_file) }}" alt="プレビュー画像">
+                    </div>
+                  {% elif q.media_type == 'audio' %}
+                    <div class="question-audio-wrap">
+                      <audio class="question-audio" controls preload="metadata">
+                        <source src="{{ url_for('static', filename='uploads/' ~ q.media_file) }}">
+                      </audio>
+                    </div>
+                  {% endif %}
+                {% endif %}
+
+                <ol class="preview-choices">
+                  <li>{{ q.choice1 }}</li>
+                  <li>{{ q.choice2 }}</li>
+                  <li>{{ q.choice3 }}</li>
+                  <li>{{ q.choice4 }}</li>
+                </ol>
+                <div><strong>正解:</strong> {{ q.answer }}</div>
+                {% if q.hint1 %}<div><strong>ヒント1:</strong> {{ q.hint1 }}</div>{% endif %}
+                {% if q.hint2 %}<div><strong>ヒント2:</strong> {{ q.hint2 }}</div>{% endif %}
+                {% if q.explanation %}<div><strong>解説:</strong> {{ q.explanation }}</div>{% endif %}
+                {% if q.tags %}<div class="muted">タグ: {{ q.tags }}</div>{% endif %}
+                {% if q.source %}<div class="muted">出典: {{ q.source }}</div>{% endif %}
+              </div>
+            {% endfor %}
+          </div>
+
+          {% if not errors %}
+            <button type="submit" class="primary">チェックした問題を登録</button>
+          {% endif %}
+        </form>
       </section>
+
+      <script>
+        const toggleAll = document.getElementById('toggle-all');
+        if (toggleAll) {
+          toggleAll.addEventListener('change', () => {
+            document.querySelectorAll('.include-checkbox').forEach(cb => cb.checked = toggleAll.checked);
+          });
+        }
+      </script>
     {% endif %}
 
     <section class="actions">
