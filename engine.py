@@ -154,6 +154,7 @@ def normalize_import_questions(raw_data):
             continue
 
         normalized.append({
+            "source_id": str(item.get("id") or item.get("ID") or item.get("問題ID") or "").strip(),
             "subject": subject,
             "grade": grade,
             "category": category,
@@ -186,7 +187,7 @@ def append_questions_to_csv(questions_csv: Path, new_questions):
     remain stable.
     """
     standard_fields = [
-        "subject", "grade", "category", "question",
+        "source_id", "subject", "grade", "category", "question",
         "choice1", "choice2", "choice3", "choice4", "answer",
         "hint1", "hint2", "explanation",
         "media_type", "media_file", "image",
@@ -223,6 +224,68 @@ def append_questions_to_csv(questions_csv: Path, new_questions):
             writer.writerow({field: row.get(field, "") for field in fieldnames})
 
     return len(new_questions)
+
+
+def append_questions_to_csv_skip_duplicates(questions_csv: Path, new_questions, unique_field="source_id"):
+    """Append questions, skipping rows whose source_id already exists.
+
+    Returns (added_count, duplicate_count).
+    """
+    standard_fields = [
+        "source_id", "subject", "grade", "category", "question",
+        "choice1", "choice2", "choice3", "choice4", "answer",
+        "hint1", "hint2", "explanation",
+        "media_type", "media_file", "image",
+        "difficulty", "importance", "tags", "source",
+    ]
+
+    rows = []
+    existing_fields = []
+    if questions_csv.exists():
+        with questions_csv.open("r", encoding="utf-8-sig", newline="") as f:
+            reader = csv.DictReader(f)
+            existing_fields = reader.fieldnames or []
+            rows = [dict(row) for row in reader]
+
+    fieldnames = []
+    for field in standard_fields + existing_fields:
+        if field not in fieldnames:
+            fieldnames.append(field)
+
+    existing_ids = {
+        str(row.get(unique_field) or "").strip()
+        for row in rows
+        if str(row.get(unique_field) or "").strip()
+    }
+
+    added = []
+    duplicate_count = 0
+    for question in new_questions:
+        source_id = str(question.get(unique_field) or "").strip()
+        if source_id and source_id in existing_ids:
+            duplicate_count += 1
+            continue
+        if source_id:
+            existing_ids.add(source_id)
+        added.append(question)
+
+    for row in rows:
+        row.setdefault("subject", row.get("教科", "英語") or "英語")
+        legacy_image = row.get("image") or row.get("image_filename", "")
+        row.setdefault("media_type", "image" if legacy_image else "")
+        row.setdefault("media_file", legacy_image)
+        row.setdefault("image", legacy_image)
+
+    rows.extend(added)
+
+    questions_csv.parent.mkdir(parents=True, exist_ok=True)
+    with questions_csv.open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: row.get(field, "") for field in fieldnames})
+
+    return len(added), duplicate_count
 
 def build_grade_category_map(questions):
     """Return available categories for each grade."""

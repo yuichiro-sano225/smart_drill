@@ -24,6 +24,7 @@ from engine import (
     select_questions,
     normalize_import_questions,
     append_questions_to_csv,
+    append_questions_to_csv_skip_duplicates,
 )
 
 app = Flask(__name__)
@@ -699,7 +700,11 @@ def import_questions_save():
 
     questions = clean_import_questions(selected)
     try:
-        count = append_questions_to_csv(QUESTIONS_CSV, questions)
+        if import_state.get("source_type") == "sdp":
+            count, duplicate_skipped = append_questions_to_csv_skip_duplicates(QUESTIONS_CSV, questions)
+        else:
+            count = append_questions_to_csv(QUESTIONS_CSV, questions)
+            duplicate_skipped = 0
     except Exception as e:
         session["import_errors"] = [f"CSV登録: questions.csv への登録に失敗しました: {e}"]
         return redirect(url_for("import_questions_page"))
@@ -709,13 +714,14 @@ def import_questions_save():
     session["import_result"] = {
         "registered": count,
         "skipped": skipped,
+        "duplicate_skipped": duplicate_skipped,
         "images": media_counts.get("images", 0),
         "audio": media_counts.get("audio", 0),
     }
     token = session.pop("import_token", None)
     if token:
         IMPORT_CACHE.pop(token, None)
-    session["import_message"] = f"{count}問を登録しました。{skipped}問は登録しませんでした。"
+    session["import_message"] = f"{count}問を登録しました。重複のため{duplicate_skipped}問をスキップしました。"
     return redirect(url_for("import_questions_page"))
 
 

@@ -37,8 +37,12 @@
             <div class="summary-value">{{ import_result.registered }}問</div>
           </div>
           <div class="summary-box">
-            <div class="summary-label">スキップした問題数</div>
+            <div class="summary-label">選択解除でスキップした問題数</div>
             <div class="summary-value">{{ import_result.skipped }}問</div>
+          </div>
+          <div class="summary-box">
+            <div class="summary-label">重複のためスキップした問題数</div>
+            <div class="summary-value">{{ import_result.duplicate_skipped or 0 }}問</div>
           </div>
           <div class="summary-box">
             <div class="summary-label">コピーした画像数</div>
